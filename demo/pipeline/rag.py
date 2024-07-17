@@ -16,7 +16,7 @@ from llama_index.core.retrievers import BaseRetriever
 from llama_index.core.schema import NodeWithScore
 from llama_index.core.base.llms.types import CompletionResponse
 
-from custom.template import QA_TEMPLATE
+from demo.custom.template import QA_TEMPLATE
 
 
 class QdrantRetriever(BaseRetriever):

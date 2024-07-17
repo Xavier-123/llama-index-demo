@@ -55,12 +55,12 @@ def build_pipeline(
 
 async def build_vector_store(
     config: dict, reindex: bool = False,
-    path: str = "./vector"
+    storepath: str = "./vector"
 ) -> tuple[AsyncQdrantClient, QdrantVectorStore]:
     client = AsyncQdrantClient(
         # url=config["QDRANT_URL"],
         # location=":memory:",
-        path=path
+        path=storepath
     )
     if reindex:
         try:
