@@ -33,7 +33,7 @@ def read_data(path: str = "data") -> list[Document]:
 
 
 def build_pipeline(
-    llm: LLM,
+    # llm: LLM,
     embed_model: BaseEmbedding,
     template: str = None,
     vector_store: BasePydanticVectorStore = None,

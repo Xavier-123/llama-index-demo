@@ -31,7 +31,7 @@ async def build_embeding(
 
     print(f'Init pipeline and vector store {model_name}')
     # 初始化 数据ingestion pipeline 和 vector store
-    client, vector_store = await build_vector_store(cfg, storepath=f'./vector_{model_name}', reindex=cfg["REINDEX"])   # reindex=True 重制作向量
+    client, vector_store = await build_vector_store(cfg, storepath=f'./vector/{model_name}/', reindex=cfg["REINDEX"])   # reindex=True 重制作向量
 
     collection_info = await client.get_collection(
         cfg["COLLECTION_NAME"] or "aiops24"
@@ -40,7 +40,8 @@ async def build_embeding(
 
     if collection_info.points_count == 0:
         data = read_data(cfg["DATA_DIR"] or "data")
-        pipeline = build_pipeline(embeding, vector_store=vector_store,
+        pipeline = build_pipeline(embed_model=embeding,
+                                  vector_store=vector_store,
                                   # themetree=treedict
                                   )
         # 暂时停止实时索引

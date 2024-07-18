@@ -17,6 +17,7 @@ else:
 
 # reranker
 cfg["RERANKER_MODEL"] = os.environ.get("RERANKER_MODEL", r"F:\inspur\EMBEDDING_MODEL\Xorbits\bge-reranker-base")
+# cfg["RERANKER_MODEL"] = os.environ.get("RERANKER_MODEL", False)
 
 # quer重写
 cfg["QUERY_REWRITE"] = os.environ.get("QUERY_REWRITE", False)
@@ -31,7 +32,7 @@ cfg["HYDE"] = os.environ.get("HYDE", False)
 cfg["MIXED_SEARCH"] = os.environ.get("MIXED_SEARCH", False)
 
 # 重制作index
-cfg["REINDEX"] = os.environ.get("REINDEX", True)   # True
+cfg["REINDEX"] = os.environ.get("REINDEX", False)   # True
 
 cfg["VECTOR_SIZE"] = os.environ.get("VECTOR_SIZE", 768)
 

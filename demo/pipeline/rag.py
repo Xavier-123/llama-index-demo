@@ -55,6 +55,8 @@ class QdrantRetriever(BaseRetriever):
             node_with_scores.append(NodeWithScore(node=node, score=similarity))
         return node_with_scores
 
+# import llama_index.core.settings as settings
+from llama_index.core import Settings
 
 async def generation_with_knowledge_retrieval(
     query_str: str,
@@ -64,9 +66,24 @@ async def generation_with_knowledge_retrieval(
     reranker: BaseNodePostprocessor | None = None,
     debug: bool = False,
     progress=None,
+    embeding_list: list = [],
+    settings=None,
 ) -> CompletionResponse:
     query_bundle = QueryBundle(query_str=query_str)
+
     node_with_scores = await retriever.aretrieve(query_bundle)
+
+    settings.embed_model = embeding_list[1][0]
+    node_with_scores2 = await embeding_list[1][1].aretrieve(query_bundle)
+
+    # 合并两个embedding模型检索结果
+    all_text = [node.text for node in node_with_scores]
+    for node in node_with_scores2:
+        if node.text not in all_text:
+            node_with_scores.append(node)
+
+    # print("内容是否相同：", node_with_scores[0].text == node_with_scores2[0].text)
+
     if debug:
         print(f"retrieved:\n{node_with_scores}\n------")
     if reranker:
@@ -79,6 +96,7 @@ async def generation_with_knowledge_retrieval(
     fmt_qa_prompt = PromptTemplate(qa_template).format(
         context_str=context_str, query_str=query_str
     )
+    print("llm----->:")
     ret = await llm.acomplete(fmt_qa_prompt)
     if progress:
         progress.update(1)
