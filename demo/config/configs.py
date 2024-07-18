@@ -23,7 +23,7 @@ cfg["RERANKER_MODEL"] = os.environ.get("RERANKER_MODEL", r"F:\inspur\EMBEDDING_M
 cfg["QUERY_REWRITE"] = os.environ.get("QUERY_REWRITE", True)
 
 # 长内容优先排序
-cfg["LREORDER"] = os.environ.get("LREORDER", False)
+cfg["LREORDER"] = os.environ.get("LREORDER", True)
 
 # 假设性文档嵌入
 cfg["HYDE"] = os.environ.get("HYDE", False)

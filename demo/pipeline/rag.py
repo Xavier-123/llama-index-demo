@@ -3,8 +3,10 @@ import qdrant_client
 import re
 
 from llama_index.core.llms.llm import LLM
+
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 from llama_index.core.postprocessor.types import BaseNodePostprocessor
+from llama_index.core.postprocessor import LongContextReorder
 from llama_index.core.vector_stores import VectorStoreQuery
 from llama_index.core import (
     QueryBundle,
@@ -124,6 +126,12 @@ async def generation_with_knowledge_retrieval(
         query_rewrite_bundle = QueryBundle(query_str=query_rewrite)
         node_with_scores_query_rewrite = await retriever.aretrieve(query_rewrite_bundle)
         node_with_scores = merge_node(node_with_scores, node_with_scores_query_rewrite)
+
+
+    # 长上下文阅读器
+    if cfg["LREORDER"]:
+        LCreorder = LongContextReorder()
+        node_with_scores = LCreorder.postprocess_nodes(node_with_scores)
 
 
     if debug:
