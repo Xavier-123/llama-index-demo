@@ -53,7 +53,7 @@ async def build_embeding(
         # 恢复实时索引
         await client.update_collection(
             collection_name=cfg["COLLECTION_NAME"] or "aiops24",
-            optimizer_config=models.OptimizersConfigDiff(indexing_threshold=30000),
+            optimizer_config=models.OptimizersConfigDiff(indexing_threshold=20000),
         )
         print(f"data length: {len(data)}")
         # Update collection info !
@@ -62,6 +62,6 @@ async def build_embeding(
         )
         print(f"points count:{collection_info.points_count}")
 
-    retriever = QdrantRetriever(vector_store, embeding, similarity_top_k=100)
+    retriever = QdrantRetriever(vector_store, embeding, similarity_top_k=10)
 
     return embeding, retriever

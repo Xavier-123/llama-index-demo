@@ -1,5 +1,6 @@
 from typing import List
 import qdrant_client
+import re
 
 from llama_index.core.llms.llm import LLM
 from llama_index.vector_stores.qdrant import QdrantVectorStore
@@ -16,8 +17,27 @@ from llama_index.core.retrievers import BaseRetriever
 from llama_index.core.schema import NodeWithScore
 from llama_index.core.base.llms.types import CompletionResponse
 
-from demo.custom.template import QA_TEMPLATE
+from demo.config.configs import cfg
+from demo.custom.template import QA_TEMPLATE, RW_TEMPLATE, OW_TEMPLATE
 
+def queryGenerations(query_str, llm, num_queries=1):
+    fmt_rw_prompt = PromptTemplate(RW_TEMPLATE)
+    fmt_ow_prompt = PromptTemplate(OW_TEMPLATE)
+    rw_response = llm.predict(fmt_rw_prompt, num_queries=num_queries, query_str=query_str)
+    ow_response = llm.predict(fmt_ow_prompt, num_queries=num_queries, query_str=query_str)
+    # assume LLM proper put each query on a newline
+    rw_queries = [re.sub('^\d\.', '', i) for i in rw_response.split("\n")[-2:]]
+    ow_queries = [re.sub('^\d\.', '', i) for i in ow_response.split("\n")[-2:]]
+
+    return rw_queries, ow_queries
+
+
+def merge_node(node_with_scores, node_with_scores_add):
+    all_text = [node.text for node in node_with_scores]
+    for node in node_with_scores_add:
+        if node.text not in all_text:
+            node_with_scores.append(node)
+    return node_with_scores
 
 class QdrantRetriever(BaseRetriever):
     def __init__(
@@ -74,15 +94,37 @@ async def generation_with_knowledge_retrieval(
     node_with_scores = await retriever.aretrieve(query_bundle)
 
     settings.embed_model = embeding_list[1][0]
-    node_with_scores2 = await embeding_list[1][1].aretrieve(query_bundle)
+    node_with_scores_embedding_small = await embeding_list[1][1].aretrieve(query_bundle)
 
     # 合并两个embedding模型检索结果
     all_text = [node.text for node in node_with_scores]
-    for node in node_with_scores2:
+    for node in node_with_scores_embedding_small:
         if node.text not in all_text:
             node_with_scores.append(node)
 
-    # print("内容是否相同：", node_with_scores[0].text == node_with_scores2[0].text)
+    # 重写query
+    query_split, query_rewrite = [], []
+    if cfg["QUERY_REWRITE"]:
+        # 拆分
+        query_split, query_rewrite = queryGenerations(query_str, llm)
+        print("queryGenerations query_split:", query_split)
+        print("queryGenerations query_rewrite:", query_rewrite)
+        query_split_1_bundle = QueryBundle(query_str=query_split[0])
+        query_split_2_bundle = QueryBundle(query_str=query_split[1])
+        node_with_scores_query_split_1 = await retriever.aretrieve(query_split_1_bundle)
+        node_with_scores_query_split_2 = await retriever.aretrieve(query_split_2_bundle)
+        node_with_scores = merge_node(node_with_scores, node_with_scores_query_split_1)
+        node_with_scores = merge_node(node_with_scores, node_with_scores_query_split_2)
+
+        # 重写
+        for query in query_rewrite:
+            if len(query) > 0:
+                query_rewrite = query
+                break
+        query_rewrite_bundle = QueryBundle(query_str=query_rewrite)
+        node_with_scores_query_rewrite = await retriever.aretrieve(query_rewrite_bundle)
+        node_with_scores = merge_node(node_with_scores, node_with_scores_query_rewrite)
+
 
     if debug:
         print(f"retrieved:\n{node_with_scores}\n------")

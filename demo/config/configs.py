@@ -20,7 +20,7 @@ cfg["RERANKER_MODEL"] = os.environ.get("RERANKER_MODEL", r"F:\inspur\EMBEDDING_M
 # cfg["RERANKER_MODEL"] = os.environ.get("RERANKER_MODEL", False)
 
 # quer重写
-cfg["QUERY_REWRITE"] = os.environ.get("QUERY_REWRITE", False)
+cfg["QUERY_REWRITE"] = os.environ.get("QUERY_REWRITE", True)
 
 # 长内容优先排序
 cfg["LREORDER"] = os.environ.get("LREORDER", False)
