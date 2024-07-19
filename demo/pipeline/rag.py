@@ -3,11 +3,12 @@ import qdrant_client
 import re
 
 from llama_index.core.llms.llm import LLM
-
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 from llama_index.core.postprocessor.types import BaseNodePostprocessor
 from llama_index.core.postprocessor import LongContextReorder
 from llama_index.core.vector_stores import VectorStoreQuery
+from llama_index.core.indices.query.query_transform import HyDEQueryTransform
+from llama_index.core.query_engine import TransformQueryEngine
 from llama_index.core import (
     QueryBundle,
     PromptTemplate,
@@ -18,9 +19,13 @@ from llama_index.core.embeddings import BaseEmbedding
 from llama_index.core.retrievers import BaseRetriever
 from llama_index.core.schema import NodeWithScore
 from llama_index.core.base.llms.types import CompletionResponse
+import llama_index.core.instrumentation as instrument
 
 from demo.config.configs import cfg
 from demo.custom.template import QA_TEMPLATE, RW_TEMPLATE, OW_TEMPLATE
+from demo.custom.transformation import CustomQueryEngine, CustomSentenceTransformerRerank
+
+dispatcher = instrument.get_dispatcher(__name__)
 
 def queryGenerations(query_str, llm, num_queries=1):
     fmt_rw_prompt = PromptTemplate(RW_TEMPLATE)
@@ -41,12 +46,13 @@ def merge_node(node_with_scores, node_with_scores_add):
             node_with_scores.append(node)
     return node_with_scores
 
+
 class QdrantRetriever(BaseRetriever):
     def __init__(
-        self,
-        vector_store: QdrantVectorStore,
-        embed_model: BaseEmbedding,
-        similarity_top_k: int = 2,
+            self,
+            vector_store: QdrantVectorStore,
+            embed_model: BaseEmbedding,
+            similarity_top_k: int = 2,
     ) -> None:
         self._vector_store = vector_store
         self._embed_model = embed_model
@@ -54,6 +60,19 @@ class QdrantRetriever(BaseRetriever):
         super().__init__()
 
     async def _aretrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
+        query_embedding = self._embed_model.get_query_embedding(query_bundle.query_str)
+        vector_store_query = VectorStoreQuery(
+            query_embedding, similarity_top_k=self._similarity_top_k
+        )
+        query_result = await self._vector_store.aquery(vector_store_query)
+
+        node_with_scores = []
+        for node, similarity in zip(query_result.nodes, query_result.similarities):
+            node_with_scores.append(NodeWithScore(node=node, score=similarity))
+        return node_with_scores
+
+    @dispatcher.span
+    async def aretrieve_cc(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
         query_embedding = self._embed_model.get_query_embedding(query_bundle.query_str)
         vector_store_query = VectorStoreQuery(
             query_embedding, similarity_top_k=self._similarity_top_k
@@ -77,19 +96,17 @@ class QdrantRetriever(BaseRetriever):
             node_with_scores.append(NodeWithScore(node=node, score=similarity))
         return node_with_scores
 
-# import llama_index.core.settings as settings
-from llama_index.core import Settings
 
 async def generation_with_knowledge_retrieval(
-    query_str: str,
-    retriever: BaseRetriever,
-    llm: LLM,
-    qa_template: str = QA_TEMPLATE,
-    reranker: BaseNodePostprocessor | None = None,
-    debug: bool = False,
-    progress=None,
-    embeding_list: list = [],
-    settings=None,
+        query_str: str,
+        retriever: BaseRetriever,
+        llm: LLM,
+        qa_template: str = QA_TEMPLATE,
+        reranker: BaseNodePostprocessor | None = None,
+        debug: bool = False,
+        progress=None,
+        embeding_list: list = [],
+        settings=None,
 ) -> CompletionResponse:
     query_bundle = QueryBundle(query_str=query_str)
 
@@ -127,12 +144,34 @@ async def generation_with_knowledge_retrieval(
         node_with_scores_query_rewrite = await retriever.aretrieve(query_rewrite_bundle)
         node_with_scores = merge_node(node_with_scores, node_with_scores_query_rewrite)
 
-
-    # 长上下文阅读器
+    ''' 长上下文阅读器 '''
     if cfg["LREORDER"]:
         LCreorder = LongContextReorder()
         node_with_scores = LCreorder.postprocess_nodes(node_with_scores)
 
+    '''
+    hyde: 基于假设，通过大语言模型生成的答案在Embedding空间中可能更为接近。HyDE通过生成假设性文档（答案）并利用Embedding相似性检索与之类似的真实文档来实现。
+    '''
+    if cfg["HYDE"]:
+        print('Hyde')
+
+        query_engine = CustomQueryEngine(
+            llm=llm,
+            retriever=retriever,
+            # filters=filters,
+            qa_template=qa_template,
+            reranker=reranker,
+            debug=debug,
+            callback_manager=None,
+        )
+
+        hyde = HyDEQueryTransform(include_original=True, llm=llm, hyde_prompt=PromptTemplate(
+            '你是一个运维领域专家，请尝试回答以下问题：\n\n{context_str}\n'))
+
+        hyde_query_engine = TransformQueryEngine(query_engine, hyde)
+
+        query_result = await hyde_query_engine.aquery(query_bundle)
+        ret = CompletionResponse(text=query_result.response)
 
     if debug:
         print(f"retrieved:\n{node_with_scores}\n------")
@@ -146,9 +185,15 @@ async def generation_with_knowledge_retrieval(
     fmt_qa_prompt = PromptTemplate(qa_template).format(
         context_str=context_str, query_str=query_str
     )
-    print("llm----->:")
+    # print("llm----->:")
+    res = []
+    for node in node_with_scores:
+        # print(node.metadata["file_name"])
+        res.append(node.metadata["file_name"])
+        print(node.text)
+        print("-"*100)
+    print(res)
     ret = await llm.acomplete(fmt_qa_prompt)
     if progress:
         progress.update(1)
     return ret
-

@@ -1,6 +1,6 @@
 from llama_index.core import Settings
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-from llama_index.legacy.llms import OpenAILike as OpenAI
+from llama_index.legacy.llms import OpenAILike
 from llama_index.core.callbacks import CallbackManager, LlamaDebugHandler
 from llama_index.core.postprocessor import SentenceTransformerRerank
 
@@ -27,21 +27,21 @@ async def main():
     # Settings.callback_manager = callback_manager
 
     # 初始化 LLM 嵌入模型
-    llm = OpenAI(
-        api_key=config["GLM_KEY"],
-        model="glm-4",
-        # model="glm-4-0520",
-        api_base="https://open.bigmodel.cn/api/paas/v4/",
-        is_chat_model=True,
-        max_tokens=200
-    )
-
-    # llm = OpenAI(
-    #     # api_key='',
-    #     model="qwen2-72b-instruct-int4",
-    #     api_base="http://10.108.1.254:18001/v1/chat/completions",
-    #     max_tokens=500
+    # llm = OpenAILike(
+    #     api_key=config["GLM_KEY"],
+    #     model="glm-4",
+    #     # model="glm-4-0520",
+    #     api_base="https://open.bigmodel.cn/api/paas/v4/",
+    #     is_chat_model=True,
+    #     # max_tokens=200
     # )
+
+    llm = OpenAILike(
+        api_key='fake',
+        model="qwen2-72b-instruct-int4",
+        api_base="http://10.108.1.254:18001/v1",
+        max_tokens=500
+    )
 
     # embeding
     embeding_list = []
@@ -69,6 +69,7 @@ async def main():
     for query in tqdm(queries, total=len(queries)):
         # # query["query"] = "怎么查看二代卡？"
         # query["query"] = "怎么生成RANK_TABLE_FILE的json文件？"
+        query["query"] = "如何部署一个AI平台？"
         result = await generation_with_knowledge_retrieval(
             query_str=query["query"],
             retriever=retriever,

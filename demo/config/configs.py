@@ -20,10 +20,10 @@ cfg["RERANKER_MODEL"] = os.environ.get("RERANKER_MODEL", r"F:\inspur\EMBEDDING_M
 # cfg["RERANKER_MODEL"] = os.environ.get("RERANKER_MODEL", False)
 
 # quer重写
-cfg["QUERY_REWRITE"] = os.environ.get("QUERY_REWRITE", True)
+cfg["QUERY_REWRITE"] = os.environ.get("QUERY_REWRITE", False)
 
 # 长内容优先排序
-cfg["LREORDER"] = os.environ.get("LREORDER", True)
+cfg["LREORDER"] = os.environ.get("LREORDER", False)
 
 # 假设性文档嵌入
 cfg["HYDE"] = os.environ.get("HYDE", False)
@@ -41,10 +41,10 @@ cfg["GLM_KEY"] = os.environ.get("GLM_KEY", '4674c23251e02b9c04b6d2c78e73a7a3.5az
 # cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "md")
 # cfg["DATA_DIR"] = os.environ.get("DATA_DIR", 'data/md')
 
-cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-docx")
+cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-all")
+# cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-docx")
 # cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-xlsx")
 # cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-pdf")
 # cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-pptx")
-# cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-zip")
-# cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-rar")
 cfg["DATA_DIR"] = os.environ.get("DATA_DIR", 'data/Product_Department_Data')
+# cfg["DATA_DIR"] = os.environ.get("DATA_DIR", 'data/xlsx')

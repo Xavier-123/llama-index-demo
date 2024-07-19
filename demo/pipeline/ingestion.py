@@ -19,14 +19,12 @@ def read_data(path: str = "data") -> list[Document]:
         input_dir=path,
         recursive=True,
         required_exts=[
-            # ".txt",
-            # ".md",
+            ".txt",
+            ".md",
             ".docx",
-            # ".pdf",
-            # ".xlsx",
+            ".pdf",
+            ".xlsx",
             # ".pptx",
-            # ".zip",
-            # ".rar",
         ],
     )
     return reader.load_data()

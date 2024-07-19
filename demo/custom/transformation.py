@@ -1,6 +1,8 @@
 from typing import Sequence
 from llama_index.core.extractors.interface import BaseExtractor
-from llama_index.core.schema import BaseNode
+from llama_index.core.schema import BaseNode, QueryBundle
+from llama_index.core.query_engine import BaseQueryEngine
+from llama_index.core.base.response.schema import RESPONSE_TYPE
 
 
 class CustomFilePathExtractor(BaseExtractor):
@@ -17,7 +19,7 @@ class CustomFilePathExtractor(BaseExtractor):
         metadata_list = []
         for node in nodes:
             node.metadata["file_path"] = "/".join(
-                node.metadata["file_path"].split("/")[-self.last_path_length :]
+                node.metadata["file_path"].split("/")[-self.last_path_length:]
             )
             metadata_list.append(node.metadata)
         return metadata_list
@@ -48,3 +50,37 @@ class CustomTitleExtractor(BaseExtractor):
             metadata_list.append(node.metadata)
 
         return metadata_list
+
+
+class CustomQueryEngine(BaseQueryEngine):
+    def __init__(self, llm, retriever,
+                 # filters,
+                 qa_template, reranker, debug, **kwargs):
+        super().__init__(**kwargs)
+        self.llm = llm,
+        self.retriever = retriever,
+        # self.filters=filters,
+        self.qa_template = qa_template,
+        self.reranker = reranker,
+        self.debug = debug,
+        self.callback_manager = None,
+
+    @classmethod
+    def class_name(cls) -> str:
+        return "CustomQueryEngine"
+
+    async def _aquery(self, query_bundle: QueryBundle) -> RESPONSE_TYPE:
+        node_with_scores = await self.retriever.aretrieve_cc(query_bundle, qdrant_filters=self.filters)
+        print("_aquery:", node_with_scores)
+        pass
+
+    def _query(self, query_bundle: QueryBundle) -> RESPONSE_TYPE:
+        pass
+
+    def _get_prompt_modules(self):
+        return {}
+
+
+class CustomSentenceTransformerRerank():
+    def __init__(self):
+        pass
