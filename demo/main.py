@@ -22,9 +22,9 @@ async def main():
     config = cfg
     print(config)
 
-    # llama_debug = LlamaDebugHandler(print_trace_on_end=True)
-    # callback_manager = CallbackManager([llama_debug])
-    # Settings.callback_manager = callback_manager
+    llama_debug = LlamaDebugHandler(print_trace_on_end=True)
+    callback_manager = CallbackManager([llama_debug])
+    Settings.callback_manager = callback_manager
 
     # 初始化 LLM 嵌入模型
     # llm = OpenAILike(
@@ -40,7 +40,7 @@ async def main():
         api_key='fake',
         model="qwen2-72b-instruct-int4",
         api_base="http://10.108.1.254:18001/v1",
-        max_tokens=500
+        max_tokens=50
     )
 
     # embeding
@@ -76,6 +76,7 @@ async def main():
             llm=llm,
             reranker=reranker,
             embeding_list=embeding_list,
+            debug=cfg["DEBUG"],
             settings=Settings
         )
         results.append(result)

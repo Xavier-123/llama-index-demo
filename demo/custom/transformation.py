@@ -2,7 +2,9 @@ from typing import Sequence
 from llama_index.core.extractors.interface import BaseExtractor
 from llama_index.core.schema import BaseNode, QueryBundle
 from llama_index.core.query_engine import BaseQueryEngine
-from llama_index.core.base.response.schema import RESPONSE_TYPE
+from llama_index.core.base.response.schema import RESPONSE_TYPE, Response
+from llama_index.core.base.llms.types import CompletionResponse
+from llama_index.core import PromptTemplate
 
 
 class CustomFilePathExtractor(BaseExtractor):
@@ -53,26 +55,51 @@ class CustomTitleExtractor(BaseExtractor):
 
 
 class CustomQueryEngine(BaseQueryEngine):
-    def __init__(self, llm, retriever,
+    def __init__(self,
+                 llm,
+                 retriever,
                  # filters,
-                 qa_template, reranker, debug, **kwargs):
-        super().__init__(**kwargs)
-        self.llm = llm,
-        self.retriever = retriever,
+                 qa_template,
+                 reranker,
+                 debug,
+                 **kwargs):
+        self.llm = llm
+        self.retriever = retriever
         # self.filters=filters,
-        self.qa_template = qa_template,
-        self.reranker = reranker,
-        self.debug = debug,
-        self.callback_manager = None,
+        self.qa_template = qa_template
+        self.reranker = reranker
+        self.debug = debug
+        super().__init__(**kwargs)
 
     @classmethod
     def class_name(cls) -> str:
         return "CustomQueryEngine"
 
     async def _aquery(self, query_bundle: QueryBundle) -> RESPONSE_TYPE:
-        node_with_scores = await self.retriever.aretrieve_cc(query_bundle, qdrant_filters=self.filters)
-        print("_aquery:", node_with_scores)
-        pass
+        node_with_scores = await self.retriever.aretrieve_cc(
+            query_bundle,
+            # qdrant_filters=self.filters
+        )
+
+        context_str = ''
+        context_str += "\n".join(
+            [f"背景知识{inode}:\n{node.text}" for inode, node in enumerate(node_with_scores)]
+        )
+        context_str = context_str.replace('~', '')
+        context_str = context_str.replace('$', '')
+        context_str = context_str.replace('>>>', '')
+        context_str = context_str.replace('>>:', '')
+
+        fmt_qa_prompt = PromptTemplate(self.qa_template).format(
+            context_str=context_str, query_str=query_bundle.query_str
+        )
+
+        try:
+            ret = await self.llm.acomplete(fmt_qa_prompt)
+        except Exception as e:
+            print(f'Request failed:{context_str}')
+            ret = CompletionResponse(text='不确定')
+        return Response(ret.text)
 
     def _query(self, query_bundle: QueryBundle) -> RESPONSE_TYPE:
         pass

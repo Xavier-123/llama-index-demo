@@ -12,6 +12,13 @@ QA_TEMPLATE = """\
     回答：\
     """
 
+HYDE_TEMPLATE = """\
+    你是一位专业的答疑小助手，请你基于自己的知识，回答以下问题，可以分点作答，要求回答贴近现实：
+    {query_str}
+
+    回答：\
+    """
+
 
 SUMMARY_EXTRACT_TEMPLATE = """\
     这是这一小节的内容：

@@ -3,12 +3,14 @@ import qdrant_client
 import re
 
 from llama_index.core.llms.llm import LLM
+from llama_index.legacy.llms import OpenAILike
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 from llama_index.core.postprocessor.types import BaseNodePostprocessor
 from llama_index.core.postprocessor import LongContextReorder
 from llama_index.core.vector_stores import VectorStoreQuery
 from llama_index.core.indices.query.query_transform import HyDEQueryTransform
 from llama_index.core.query_engine import TransformQueryEngine
+from llama_index.core.callbacks.schema import CBEventType, EventPayload
 from llama_index.core import (
     QueryBundle,
     PromptTemplate,
@@ -17,15 +19,24 @@ from llama_index.core import (
 )
 from llama_index.core.embeddings import BaseEmbedding
 from llama_index.core.retrievers import BaseRetriever
-from llama_index.core.schema import NodeWithScore
+from llama_index.core.schema import NodeWithScore, QueryType
 from llama_index.core.base.llms.types import CompletionResponse
+from llama_index.core.instrumentation.events.retrieval import RetrievalEndEvent, RetrievalStartEvent
 import llama_index.core.instrumentation as instrument
 
+
 from demo.config.configs import cfg
-from demo.custom.template import QA_TEMPLATE, RW_TEMPLATE, OW_TEMPLATE
+from demo.custom.template import QA_TEMPLATE, HYDE_TEMPLATE, RW_TEMPLATE, OW_TEMPLATE
 from demo.custom.transformation import CustomQueryEngine, CustomSentenceTransformerRerank
 
 dispatcher = instrument.get_dispatcher(__name__)
+
+
+def hydeGenerations(query_str: str, llm, num_queries=1):
+    hyde_prompt = PromptTemplate(HYDE_TEMPLATE)
+    hyde_response = llm.predict(hyde_prompt, num_queries=num_queries, query_str=query_str)
+    hyde_queries_list = [re.sub('^\d\.', '', i) for i in hyde_response.split("\n")[-2:]]
+    return hyde_queries_list[0]
 
 def queryGenerations(query_str, llm, num_queries=1):
     fmt_rw_prompt = PromptTemplate(RW_TEMPLATE)
@@ -59,7 +70,7 @@ class QdrantRetriever(BaseRetriever):
         self._similarity_top_k = similarity_top_k
         super().__init__()
 
-    async def _aretrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
+    async def _aretrieve(self, query_bundle: QueryBundle, qdrant_filters=None) -> List[NodeWithScore]:
         query_embedding = self._embed_model.get_query_embedding(query_bundle.query_str)
         vector_store_query = VectorStoreQuery(
             query_embedding, similarity_top_k=self._similarity_top_k
@@ -72,17 +83,38 @@ class QdrantRetriever(BaseRetriever):
         return node_with_scores
 
     @dispatcher.span
-    async def aretrieve_cc(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
-        query_embedding = self._embed_model.get_query_embedding(query_bundle.query_str)
-        vector_store_query = VectorStoreQuery(
-            query_embedding, similarity_top_k=self._similarity_top_k
-        )
-        query_result = await self._vector_store.aquery(vector_store_query)
+    async def aretrieve_cc(self, str_or_query_bundle: QueryType, qdrant_filters=None) -> List[NodeWithScore]:
+        self._check_callback_manager()
+        dispatch_event = dispatcher.get_dispatch_event()
 
-        node_with_scores = []
-        for node, similarity in zip(query_result.nodes, query_result.similarities):
-            node_with_scores.append(NodeWithScore(node=node, score=similarity))
-        return node_with_scores
+        dispatch_event(
+            RetrievalStartEvent(
+                str_or_query_bundle=str_or_query_bundle,
+            )
+        )
+        if isinstance(str_or_query_bundle, str):
+            query_bundle = QueryBundle(str_or_query_bundle)
+        else:
+            query_bundle = str_or_query_bundle
+        with self.callback_manager.as_trace("query"):
+            with self.callback_manager.event(
+                    CBEventType.RETRIEVE,
+                    payload={EventPayload.QUERY_STR: query_bundle.query_str},
+            ) as retrieve_event:
+                nodes = await self._aretrieve(query_bundle=query_bundle, qdrant_filters=qdrant_filters)
+                nodes = await self._ahandle_recursive_retrieval(
+                    query_bundle=query_bundle, nodes=nodes
+                )
+                retrieve_event.on_end(
+                    payload={EventPayload.NODES: nodes},
+                )
+        dispatch_event(
+            RetrievalEndEvent(
+                str_or_query_bundle=str_or_query_bundle,
+                nodes=nodes,
+            )
+        )
+        return nodes
 
     def _retrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
         query_embedding = self._embed_model.get_query_embedding(query_bundle.query_str)
@@ -100,7 +132,9 @@ class QdrantRetriever(BaseRetriever):
 async def generation_with_knowledge_retrieval(
         query_str: str,
         retriever: BaseRetriever,
-        llm: LLM,
+        # retriever: QdrantRetriever,
+        # llm: LLM,
+        llm: OpenAILike,
         qa_template: str = QA_TEMPLATE,
         reranker: BaseNodePostprocessor | None = None,
         debug: bool = False,
@@ -112,17 +146,21 @@ async def generation_with_knowledge_retrieval(
 
     node_with_scores = await retriever.aretrieve(query_bundle)
 
-    settings.embed_model = embeding_list[1][0]
-    node_with_scores_embedding_small = await embeding_list[1][1].aretrieve(query_bundle)
+    if len(embeding_list) > 1:
+        settings.embed_model = embeding_list[1][0]
+        node_with_scores_embedding_small = await embeding_list[1][1].aretrieve(query_bundle)
 
-    # 合并两个embedding模型检索结果
-    all_text = [node.text for node in node_with_scores]
-    for node in node_with_scores_embedding_small:
-        if node.text not in all_text:
-            node_with_scores.append(node)
+        if debug:
+            print(f"node_with_scores_embedding_small:\n{node_with_scores_embedding_small}\n------")
+
+        settings.embed_model = embeding_list[0][0]
+        # 合并两个embedding模型检索结果
+        all_text = [node.text for node in node_with_scores]
+        for node in node_with_scores_embedding_small:
+            if node.text not in all_text:
+                node_with_scores.append(node)
 
     # 重写query
-    query_split, query_rewrite = [], []
     if cfg["QUERY_REWRITE"]:
         # 拆分
         query_split, query_rewrite = queryGenerations(query_str, llm)
@@ -142,6 +180,11 @@ async def generation_with_knowledge_retrieval(
                 break
         query_rewrite_bundle = QueryBundle(query_str=query_rewrite)
         node_with_scores_query_rewrite = await retriever.aretrieve(query_rewrite_bundle)
+
+        if debug:
+            print(f"query_rewrite_bundle:\n{query_rewrite_bundle}\n------")
+            print(f"node_with_scores_query_rewrite:\n{node_with_scores_query_rewrite}\n------")
+
         node_with_scores = merge_node(node_with_scores, node_with_scores_query_rewrite)
 
     ''' 长上下文阅读器 '''
@@ -154,24 +197,16 @@ async def generation_with_knowledge_retrieval(
     '''
     if cfg["HYDE"]:
         print('Hyde')
+        query_hyde = hydeGenerations(query_str=query_str, llm=llm)
+        query_hyde_bundle = QueryBundle(query_str=query_hyde)
 
-        query_engine = CustomQueryEngine(
-            llm=llm,
-            retriever=retriever,
-            # filters=filters,
-            qa_template=qa_template,
-            reranker=reranker,
-            debug=debug,
-            callback_manager=None,
-        )
+        node_with_scores_query_hyde = await retriever.aretrieve(query_hyde_bundle)
 
-        hyde = HyDEQueryTransform(include_original=True, llm=llm, hyde_prompt=PromptTemplate(
-            '你是一个运维领域专家，请尝试回答以下问题：\n\n{context_str}\n'))
+        if debug:
+            print(f"query_hyde_bundle:\n{query_hyde_bundle}\n------")
+            print(f"node_with_scores_query_hyde:\n{node_with_scores_query_hyde}\n------")
 
-        hyde_query_engine = TransformQueryEngine(query_engine, hyde)
-
-        query_result = await hyde_query_engine.aquery(query_bundle)
-        ret = CompletionResponse(text=query_result.response)
+        node_with_scores = merge_node(node_with_scores, node_with_scores_query_hyde)
 
     if debug:
         print(f"retrieved:\n{node_with_scores}\n------")
@@ -185,14 +220,17 @@ async def generation_with_knowledge_retrieval(
     fmt_qa_prompt = PromptTemplate(qa_template).format(
         context_str=context_str, query_str=query_str
     )
+
     # print("llm----->:")
-    res = []
-    for node in node_with_scores:
-        # print(node.metadata["file_name"])
-        res.append(node.metadata["file_name"])
-        print(node.text)
-        print("-"*100)
-    print(res)
+    # res = []
+    # for node in node_with_scores:
+    #     # print(node.metadata["file_name"])
+    #     res.append(node.metadata["file_name"])
+    #     print(node.text)
+    #     print("-"*100)
+    # print(res)
+
+
     ret = await llm.acomplete(fmt_qa_prompt)
     if progress:
         progress.update(1)

@@ -26,7 +26,7 @@ cfg["QUERY_REWRITE"] = os.environ.get("QUERY_REWRITE", False)
 cfg["LREORDER"] = os.environ.get("LREORDER", False)
 
 # 假设性文档嵌入
-cfg["HYDE"] = os.environ.get("HYDE", False)
+cfg["HYDE"] = os.environ.get("HYDE", True)
 
 # 混合检索
 cfg["MIXED_SEARCH"] = os.environ.get("MIXED_SEARCH", False)
@@ -38,13 +38,15 @@ cfg["VECTOR_SIZE"] = os.environ.get("VECTOR_SIZE", 768)
 
 cfg["GLM_KEY"] = os.environ.get("GLM_KEY", '4674c23251e02b9c04b6d2c78e73a7a3.5azT9pxx0cHPX89Q')
 
+cfg["DEBUG"] = os.environ.get("DEBUG", True)
+
 # cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "md")
 # cfg["DATA_DIR"] = os.environ.get("DATA_DIR", 'data/md')
 
-cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-all")
+# cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-all")
 # cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-docx")
 # cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-xlsx")
-# cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-pdf")
+cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-pdf")
 # cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-pptx")
 cfg["DATA_DIR"] = os.environ.get("DATA_DIR", 'data/Product_Department_Data')
 # cfg["DATA_DIR"] = os.environ.get("DATA_DIR", 'data/xlsx')
