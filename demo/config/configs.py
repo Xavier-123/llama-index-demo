@@ -4,16 +4,17 @@ cfg = {}
 
 # 多embedding
 is_multi_embedding = os.environ.get("IS_MULTI_EMBEDDING", "F:\inspur\EMBEDDING_MODEL\m3e-base,F:\inspur\EMBEDDING_MODEL\m3e-small")
+# is_multi_embedding = os.environ.get("IS_MULTI_EMBEDDING", "F:\inspur\EMBEDDING_MODEL\m3e-base")
 embedding_list = is_multi_embedding.split(',')
 cfg["EMBEDDING_LIST"] = embedding_list
-if len(embedding_list) > 1:
-    embedding_model1 = embedding_list[0]
-    embedding_model2 = embedding_list[-1]
-    cfg["EMBEDDING_MODEL1"] = embedding_model1
-    cfg["EMBEDDING_MODEL2"] = embedding_model2
-else:
-    embedding_model1 = is_multi_embedding
-    cfg["EMBEDDING_MODEL1"] = embedding_model1
+# if len(embedding_list) > 1:
+#     embedding_model1 = embedding_list[0]
+#     embedding_model2 = embedding_list[-1]
+#     cfg["EMBEDDING_MODEL1"] = embedding_model1
+#     cfg["EMBEDDING_MODEL2"] = embedding_model2
+# else:
+#     embedding_model1 = is_multi_embedding
+#     cfg["EMBEDDING_MODEL1"] = embedding_model1
 
 # reranker
 cfg["RERANKER_MODEL"] = os.environ.get("RERANKER_MODEL", r"F:\inspur\EMBEDDING_MODEL\Xorbits\bge-reranker-base")
@@ -26,7 +27,7 @@ cfg["QUERY_REWRITE"] = os.environ.get("QUERY_REWRITE", False)
 cfg["LREORDER"] = os.environ.get("LREORDER", False)
 
 # 假设性文档嵌入
-cfg["HYDE"] = os.environ.get("HYDE", True)
+cfg["HYDE"] = os.environ.get("HYDE", False)
 
 # 混合检索
 cfg["MIXED_SEARCH"] = os.environ.get("MIXED_SEARCH", False)
@@ -44,9 +45,9 @@ cfg["DEBUG"] = os.environ.get("DEBUG", True)
 # cfg["DATA_DIR"] = os.environ.get("DATA_DIR", 'data/md')
 
 # cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-all")
-# cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-docx")
+cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-docx")
 # cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-xlsx")
-cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-pdf")
+# cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-pdf")
 # cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-pptx")
 cfg["DATA_DIR"] = os.environ.get("DATA_DIR", 'data/Product_Department_Data')
 # cfg["DATA_DIR"] = os.environ.get("DATA_DIR", 'data/xlsx')

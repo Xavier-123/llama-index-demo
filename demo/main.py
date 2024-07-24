@@ -40,7 +40,7 @@ async def main():
         api_key='fake',
         model="qwen2-72b-instruct-int4",
         api_base="http://10.108.1.254:18001/v1",
-        max_tokens=50
+        max_tokens=512
     )
 
     # embeding

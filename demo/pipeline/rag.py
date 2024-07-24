@@ -36,7 +36,7 @@ def hydeGenerations(query_str: str, llm, num_queries=1):
     hyde_prompt = PromptTemplate(HYDE_TEMPLATE)
     hyde_response = llm.predict(hyde_prompt, num_queries=num_queries, query_str=query_str)
     hyde_queries_list = [re.sub('^\d\.', '', i) for i in hyde_response.split("\n")[-2:]]
-    return hyde_queries_list[0]
+    return query_str + "#" + hyde_queries_list[0]
 
 def queryGenerations(query_str, llm, num_queries=1):
     fmt_rw_prompt = PromptTemplate(RW_TEMPLATE)
@@ -137,6 +137,7 @@ async def generation_with_knowledge_retrieval(
         llm: OpenAILike,
         qa_template: str = QA_TEMPLATE,
         reranker: BaseNodePostprocessor | None = None,
+        reranker_top: int | None = None,
         debug: bool = False,
         progress=None,
         embeding_list: list = [],
@@ -154,11 +155,13 @@ async def generation_with_knowledge_retrieval(
             print(f"node_with_scores_embedding_small:\n{node_with_scores_embedding_small}\n------")
 
         settings.embed_model = embeding_list[0][0]
-        # 合并两个embedding模型检索结果
-        all_text = [node.text for node in node_with_scores]
-        for node in node_with_scores_embedding_small:
-            if node.text not in all_text:
-                node_with_scores.append(node)
+        # 合并两个embedding模型检索结果-直接将前3个node合并到node_with_scores
+        node_with_scores.extend(node_with_scores_embedding_small[:3])
+
+        # all_text = [node.text for node in node_with_scores]
+        # for node in node_with_scores_embedding_small:
+        #     if node.text not in all_text:
+        #         node_with_scores.append(node)
 
     # 重写query
     if cfg["QUERY_REWRITE"]:
@@ -212,6 +215,10 @@ async def generation_with_knowledge_retrieval(
         print(f"retrieved:\n{node_with_scores}\n------")
     if reranker:
         node_with_scores = reranker.postprocess_nodes(node_with_scores, query_bundle)
+
+        if reranker_top is not None:
+            node_with_scores = node_with_scores[:reranker_top]
+
         if debug:
             print(f"reranked:\n{node_with_scores}\n------")
     context_str = "\n\n".join(
@@ -220,6 +227,9 @@ async def generation_with_knowledge_retrieval(
     fmt_qa_prompt = PromptTemplate(qa_template).format(
         context_str=context_str, query_str=query_str
     )
+    print("-"*50)
+    print(fmt_qa_prompt)
+    print("-"*50)
 
     # print("llm----->:")
     # res = []
