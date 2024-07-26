@@ -45,12 +45,33 @@ async def main():
 
     # embeding
     embeding_list = []
-    embeding, retriever = await build_embeding(model_path="F:\inspur\EMBEDDING_MODEL\m3e-base", vector_size=768)
+    embeding, retriever, vector_store_index = await build_embeding(model_path="F:\inspur\EMBEDDING_MODEL\m3e-base", vector_size=768)
     Settings.embed_model = embeding
-    embeding_list.append([embeding, retriever, 768])
+    embeding_list.append([embeding, retriever, vector_store_index, 768])
 
-    embeding_small, retriever_small = await build_embeding(model_path="F:\inspur\EMBEDDING_MODEL\m3e-small", vector_size=512)
-    embeding_list.append([embeding_small, retriever_small, 512])
+    # embeding_small, retriever_small, vector_store_index_small = await build_embeding(model_path="F:\inspur\EMBEDDING_MODEL\m3e-small", vector_size=512)
+    # embeding_list.append([embeding_small, retriever_small, vector_store_index, 512])
+
+
+    # build index
+    from llama_index.core.node_parser import SimpleNodeParser
+    from llama_index.core import StorageContext
+
+    documents = read_data(cfg["DATA_DIR"])
+    parser = SimpleNodeParser.from_defaults(chunk_size=1024, chunk_overlap=20)
+    nodes = parser.get_nodes_from_documents(documents)
+
+    # 初始化存储上下文（默认为内存中）
+    storage_context = StorageContext.from_defaults()
+    storage_context.docstore.add_documents(nodes)
+
+    # 定义向量索引和关键词表索引
+    from llama_index.core import GPTVectorStoreIndex, SimpleKeywordTableIndex, VectorStoreIndex
+
+    vector_index = VectorStoreIndex(nodes, storage_context=storage_context)
+    keyword_index = SimpleKeywordTableIndex(nodes, storage_context=storage_context)
+    vector_index.docstore.persist(persist_path="./storage/vector_index")
+    keyword_index.docstore.persist(persist_path="./storage/keyword_index")
 
 
     # reranker
@@ -82,7 +103,7 @@ async def main():
         results.append(result)
         print(result)
         print("-" * 50)
-        # break
+        break
 
     t3 = time.time()
     print("time t2 - t1:", t2 - t1)

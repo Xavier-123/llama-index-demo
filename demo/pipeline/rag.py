@@ -18,12 +18,11 @@ from llama_index.core import (
     VectorStoreIndex,
 )
 from llama_index.core.embeddings import BaseEmbedding
-from llama_index.core.retrievers import BaseRetriever
+from llama_index.core.retrievers import BaseRetriever, __all__
 from llama_index.core.schema import NodeWithScore, QueryType
 from llama_index.core.base.llms.types import CompletionResponse
 from llama_index.core.instrumentation.events.retrieval import RetrievalEndEvent, RetrievalStartEvent
 import llama_index.core.instrumentation as instrument
-
 
 from demo.config.configs import cfg
 from demo.custom.template import QA_TEMPLATE, HYDE_TEMPLATE, RW_TEMPLATE, OW_TEMPLATE
@@ -37,6 +36,7 @@ def hydeGenerations(query_str: str, llm, num_queries=1):
     hyde_response = llm.predict(hyde_prompt, num_queries=num_queries, query_str=query_str)
     hyde_queries_list = [re.sub('^\d\.', '', i) for i in hyde_response.split("\n")[-2:]]
     return query_str + "#" + hyde_queries_list[0]
+
 
 def queryGenerations(query_str, llm, num_queries=1):
     fmt_rw_prompt = PromptTemplate(RW_TEMPLATE)
@@ -56,6 +56,19 @@ def merge_node(node_with_scores, node_with_scores_add):
         if node.text not in all_text:
             node_with_scores.append(node)
     return node_with_scores
+
+def mix_retriever(embeding_list):
+    from llama_index.core.retrievers import QueryFusionRetriever
+    index_1, index_2 = embeding_list[0][2], embeding_list[1][2]
+    retriever = QueryFusionRetriever(
+        [index_1.as_retriever(), index_2.as_retriever()],
+        similarity_top_k=2,
+        num_queries=4,  # set this to 1 to disable query generation
+        use_async=True,
+        verbose=True,
+        # query_gen_prompt="...",  # we could override the query generation prompt here
+    )
+    return retriever
 
 
 class QdrantRetriever(BaseRetriever):
@@ -163,6 +176,11 @@ async def generation_with_knowledge_retrieval(
         #     if node.text not in all_text:
         #         node_with_scores.append(node)
 
+    _mix_retriever = mix_retriever(embeding_list)
+    _mix_retriever.retrieve()
+
+
+
     # 重写query
     if cfg["QUERY_REWRITE"]:
         # 拆分
@@ -213,6 +231,10 @@ async def generation_with_knowledge_retrieval(
 
     if debug:
         print(f"retrieved:\n{node_with_scores}\n------")
+
+    '''
+    重排序
+    '''
     if reranker:
         node_with_scores = reranker.postprocess_nodes(node_with_scores, query_bundle)
 
@@ -227,9 +249,9 @@ async def generation_with_knowledge_retrieval(
     fmt_qa_prompt = PromptTemplate(qa_template).format(
         context_str=context_str, query_str=query_str
     )
-    print("-"*50)
+    print("-" * 50)
     print(fmt_qa_prompt)
-    print("-"*50)
+    print("-" * 50)
 
     # print("llm----->:")
     # res = []
@@ -239,7 +261,6 @@ async def generation_with_knowledge_retrieval(
     #     print(node.text)
     #     print("-"*100)
     # print(res)
-
 
     ret = await llm.acomplete(fmt_qa_prompt)
     if progress:

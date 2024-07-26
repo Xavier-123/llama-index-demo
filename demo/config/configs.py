@@ -7,18 +7,10 @@ is_multi_embedding = os.environ.get("IS_MULTI_EMBEDDING", "F:\inspur\EMBEDDING_M
 # is_multi_embedding = os.environ.get("IS_MULTI_EMBEDDING", "F:\inspur\EMBEDDING_MODEL\m3e-base")
 embedding_list = is_multi_embedding.split(',')
 cfg["EMBEDDING_LIST"] = embedding_list
-# if len(embedding_list) > 1:
-#     embedding_model1 = embedding_list[0]
-#     embedding_model2 = embedding_list[-1]
-#     cfg["EMBEDDING_MODEL1"] = embedding_model1
-#     cfg["EMBEDDING_MODEL2"] = embedding_model2
-# else:
-#     embedding_model1 = is_multi_embedding
-#     cfg["EMBEDDING_MODEL1"] = embedding_model1
 
 # reranker
-cfg["RERANKER_MODEL"] = os.environ.get("RERANKER_MODEL", r"F:\inspur\EMBEDDING_MODEL\Xorbits\bge-reranker-base")
-# cfg["RERANKER_MODEL"] = os.environ.get("RERANKER_MODEL", False)
+# cfg["RERANKER_MODEL"] = os.environ.get("RERANKER_MODEL", r"F:\inspur\EMBEDDING_MODEL\Xorbits\bge-reranker-base")
+cfg["RERANKER_MODEL"] = os.environ.get("RERANKER_MODEL", False)
 
 # quer重写
 cfg["QUERY_REWRITE"] = os.environ.get("QUERY_REWRITE", False)
@@ -39,15 +31,16 @@ cfg["VECTOR_SIZE"] = os.environ.get("VECTOR_SIZE", 768)
 
 cfg["GLM_KEY"] = os.environ.get("GLM_KEY", '4674c23251e02b9c04b6d2c78e73a7a3.5azT9pxx0cHPX89Q')
 
-cfg["DEBUG"] = os.environ.get("DEBUG", True)
-
-# cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "md")
-# cfg["DATA_DIR"] = os.environ.get("DATA_DIR", 'data/md')
+cfg["DEBUG"] = os.environ.get("DEBUG", False)
 
 # cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-all")
-cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-docx")
+# cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-docx")
 # cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-xlsx")
 # cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-pdf")
 # cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-pptx")
-cfg["DATA_DIR"] = os.environ.get("DATA_DIR", 'data/Product_Department_Data')
-# cfg["DATA_DIR"] = os.environ.get("DATA_DIR", 'data/xlsx')
+cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-jcpt")
+# cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-swyy")
+# cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-yhfx")
+# cfg["COLLECTION_NAME"] = os.environ.get("COLLECTION_NAME", "pdd-zcyy")
+# cfg["DATA_DIR"] = os.environ.get("DATA_DIR", 'data/Product_Department_Data/')
+cfg["DATA_DIR"] = os.environ.get("DATA_DIR", 'data/Product_Department_Data/基础平台/AI平台')
