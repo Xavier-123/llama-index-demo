@@ -27,21 +27,21 @@ async def main():
     Settings.callback_manager = callback_manager
 
     # 初始化 LLM 嵌入模型
-    # llm = OpenAILike(
-    #     api_key=config["GLM_KEY"],
-    #     model="glm-4",
-    #     # model="glm-4-0520",
-    #     api_base="https://open.bigmodel.cn/api/paas/v4/",
-    #     is_chat_model=True,
-    #     # max_tokens=200
-    # )
-
     llm = OpenAILike(
-        api_key='fake',
-        model="qwen2-72b-instruct-int4",
-        api_base="http://10.108.1.254:18001/v1",
-        max_tokens=512
+        api_key=config["GLM_KEY"],
+        model="glm-4",
+        # model="glm-4-0520",
+        api_base="https://open.bigmodel.cn/api/paas/v4/",
+        is_chat_model=True,
+        # max_tokens=200
     )
+
+    # llm = OpenAILike(
+    #     api_key='fake',
+    #     model="qwen2-72b-instruct-int4",
+    #     api_base="http://10.108.1.254:18001/v1",
+    #     max_tokens=512
+    # )
 
     # embeding
     embeding_list = []
