@@ -18,7 +18,7 @@ from llama_index.core import (
     VectorStoreIndex,
 )
 from llama_index.core.embeddings import BaseEmbedding
-from llama_index.core.retrievers import BaseRetriever, __all__
+from llama_index.core.retrievers import BaseRetriever
 from llama_index.core.schema import NodeWithScore, QueryType
 from llama_index.core.base.llms.types import CompletionResponse
 from llama_index.core.instrumentation.events.retrieval import RetrievalEndEvent, RetrievalStartEvent
@@ -144,7 +144,7 @@ class QdrantRetriever(BaseRetriever):
 
 async def generation_with_knowledge_retrieval(
         query_str: str,
-        retriever: BaseRetriever,
+        # retriever: BaseRetriever,
         # retriever: QdrantRetriever,
         # llm: LLM,
         llm: OpenAILike,
@@ -153,31 +153,34 @@ async def generation_with_knowledge_retrieval(
         reranker_top: int | None = None,
         debug: bool = False,
         progress=None,
-        embeding_list: list = [],
+        embeding_retriever_list=None,
         settings=None,
-) -> CompletionResponse:
+# ) -> CompletionResponse:
+):
+    if embeding_retriever_list is None:
+        raise "未构建检索器 retriever"
+    else:
+        retriever = embeding_retriever_list[0][1]
     query_bundle = QueryBundle(query_str=query_str)
 
+    # todo 向量检索
     node_with_scores = await retriever.aretrieve(query_bundle)
 
-    if len(embeding_list) > 1:
-        settings.embed_model = embeding_list[1][0]
-        node_with_scores_embedding_small = await embeding_list[1][1].aretrieve(query_bundle)
+    # todo small向量检索
+    if len(embeding_retriever_list) > 1:
+        settings.embed_model = embeding_retriever_list[-1][0]
+        node_with_scores_embedding_small = await embeding_retriever_list[1][1].aretrieve(query_bundle)
 
         if debug:
             print(f"node_with_scores_embedding_small:\n{node_with_scores_embedding_small}\n------")
 
-        settings.embed_model = embeding_list[0][0]
+        settings.embed_model = embeding_retriever_list[0][0]
         # 合并两个embedding模型检索结果-直接将前3个node合并到node_with_scores
         node_with_scores.extend(node_with_scores_embedding_small[:3])
 
-        # all_text = [node.text for node in node_with_scores]
-        # for node in node_with_scores_embedding_small:
-        #     if node.text not in all_text:
-        #         node_with_scores.append(node)
-
-    _mix_retriever = mix_retriever(embeding_list)
-    _mix_retriever.retrieve()
+    # todo 关键词检索
+    # _mix_retriever = mix_retriever(embeding_retriever_list)
+    # _mix_retriever.retrieve()
 
 
 
@@ -265,4 +268,16 @@ async def generation_with_knowledge_retrieval(
     ret = await llm.acomplete(fmt_qa_prompt)
     if progress:
         progress.update(1)
-    return ret
+    # return ret
+
+    quote = ""
+    quote_list = []
+    for node in node_with_scores:
+        if node.metadata["file_name"] not in quote_list:
+            quote += node.metadata["file_name"] + ","
+        else:
+            continue
+    del quote_list
+    quote = quote[:-1]
+
+    return ret, quote

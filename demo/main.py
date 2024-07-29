@@ -7,7 +7,7 @@ from llama_index.core.postprocessor import SentenceTransformerRerank
 from pipeline.ingestion import build_pipeline, build_vector_store, read_data
 from pipeline.qa import read_jsonl, save_answers
 from pipeline.rag import QdrantRetriever, generation_with_knowledge_retrieval
-from pipeline.embedding import build_embeding
+from pipeline.embedding import build_embedding_retriever
 from config.configs import cfg
 from qdrant_client import models
 from tqdm.asyncio import tqdm
@@ -44,13 +44,19 @@ async def main():
     # )
 
     # embeding
-    embeding_list = []
-    embeding, retriever, vector_store_index = await build_embeding(model_path="F:\inspur\EMBEDDING_MODEL\m3e-base", vector_size=768)
+    embeding_retriever_list = []
+    embeding, retriever, vector_store_index = await build_embedding_retriever(
+        model_path="F:\inspur\EMBEDDING_MODEL\m3e-base",
+        # vector_size=768
+    )
     Settings.embed_model = embeding
-    embeding_list.append([embeding, retriever, vector_store_index, 768])
+    embeding_retriever_list.append([embeding, retriever, vector_store_index, 768])
 
-    # embeding_small, retriever_small, vector_store_index_small = await build_embeding(model_path="F:\inspur\EMBEDDING_MODEL\m3e-small", vector_size=512)
-    # embeding_list.append([embeding_small, retriever_small, vector_store_index, 512])
+    embeding_small, retriever_small, vector_store_index_small = await build_embedding_retriever(
+        model_path="F:\inspur\EMBEDDING_MODEL\m3e-small",
+        # vector_size=512
+    )
+    embeding_retriever_list.append([embeding_small, retriever_small, vector_store_index, 512])
 
 
     # build index
@@ -93,10 +99,10 @@ async def main():
         query["query"] = "如何部署一个AI平台？"
         result = await generation_with_knowledge_retrieval(
             query_str=query["query"],
-            retriever=retriever,
+            # retriever=retriever,
             llm=llm,
             reranker=reranker,
-            embeding_list=embeding_list,
+            embeding_retriever_list=embeding_retriever_list,
             debug=cfg["DEBUG"],
             settings=Settings
         )

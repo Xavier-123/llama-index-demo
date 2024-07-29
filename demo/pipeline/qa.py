@@ -26,3 +26,22 @@ def save_answers(
 
     # 保存答案到 data/answers.jsonl
     write_jsonl(path, answers)
+
+
+
+def save_answers_test(
+    queries: Iterable, results: Iterable, references_list: Iterable, path: str = "output/answers.jsonl"
+):
+    answers = []
+    for query, result, references in zip(queries, results, references_list):
+        answers.append(
+            {"id": query["id"], "query": query["query"], "quote": references, "answer": result}
+        )
+
+    # use jsonlines to save the answers
+    def write_jsonl(path, content):
+        with jsonlines.open(path, "w") as json_file:
+            json_file.write_all(content)
+
+    # 保存答案到 data/answers.jsonl
+    write_jsonl(path, answers)
