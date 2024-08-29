@@ -34,8 +34,9 @@ dispatcher = instrument.get_dispatcher(__name__)
 def hydeGenerations(query_str: str, llm, num_queries=1):
     hyde_prompt = PromptTemplate(HYDE_TEMPLATE)
     hyde_response = llm.predict(hyde_prompt, num_queries=num_queries, query_str=query_str)
-    hyde_queries_list = [re.sub('^\d\.', '', i) for i in hyde_response.split("\n")[-2:]]
-    return query_str + "#" + hyde_queries_list[0]
+    hyde_response = hyde_response.replace("\n", "")
+    # hyde_queries_list = [re.sub('^\d\.', '', i) for i in hyde_response.split("\n")[-2:]]
+    return query_str + "#" + hyde_response
 
 
 def queryGenerations(query_str, llm, num_queries=1):
@@ -147,6 +148,7 @@ async def generation_with_knowledge_retrieval(
         # retriever: BaseRetriever,
         # retriever: QdrantRetriever,
         # llm: LLM,
+        # bm25: BaseRetriever,
         llm: OpenAILike,
         qa_template: str = QA_TEMPLATE,
         reranker: BaseNodePostprocessor | None = None,
@@ -176,28 +178,31 @@ async def generation_with_knowledge_retrieval(
 
         settings.embed_model = embeding_retriever_list[0][0]
         # 合并两个embedding模型检索结果-直接将前3个node合并到node_with_scores
-        node_with_scores.extend(node_with_scores_embedding_small[:3])
+        node_with_scores.extend(node_with_scores_embedding_small[:2])
 
     # todo 关键词检索
-    # _mix_retriever = mix_retriever(embeding_retriever_list)
-    # _mix_retriever.retrieve()
+    if cfg["MIXED_SEARCH"]:
+        node_with_scores_bm25 = await bm25.aretrieve(query_bundle)
+        node_with_scores.extend(node_with_scores_bm25[:2])
 
 
 
-    # 重写query
+    # todo 重写query
     if cfg["QUERY_REWRITE"]:
         # 拆分
         query_split, query_rewrite = queryGenerations(query_str, llm)
         print("queryGenerations query_split:", query_split)
         print("queryGenerations query_rewrite:", query_rewrite)
-        query_split_1_bundle = QueryBundle(query_str=query_split[0])
-        query_split_2_bundle = QueryBundle(query_str=query_split[1])
-        node_with_scores_query_split_1 = await retriever.aretrieve(query_split_1_bundle)
-        node_with_scores_query_split_2 = await retriever.aretrieve(query_split_2_bundle)
-        node_with_scores = merge_node(node_with_scores, node_with_scores_query_split_1)
-        node_with_scores = merge_node(node_with_scores, node_with_scores_query_split_2)
+        if len(query_split) > 0:
+            query_split_1_bundle = QueryBundle(query_str=query_split[0])
+            node_with_scores_query_split_1 = await retriever.aretrieve(query_split_1_bundle)
+            node_with_scores = merge_node(node_with_scores, node_with_scores_query_split_1)
+        if len(query_split) > 1:
+            query_split_2_bundle = QueryBundle(query_str=query_split[1])
+            node_with_scores_query_split_2 = await retriever.aretrieve(query_split_2_bundle)
+            node_with_scores = merge_node(node_with_scores, node_with_scores_query_split_2)
 
-        # 重写
+        # todo 重写
         for query in query_rewrite:
             if len(query) > 0:
                 query_rewrite = query
@@ -211,10 +216,7 @@ async def generation_with_knowledge_retrieval(
 
         node_with_scores = merge_node(node_with_scores, node_with_scores_query_rewrite)
 
-    ''' 长上下文阅读器 '''
-    if cfg["LREORDER"]:
-        LCreorder = LongContextReorder()
-        node_with_scores = LCreorder.postprocess_nodes(node_with_scores)
+
 
     '''
     hyde: 基于假设，通过大语言模型生成的答案在Embedding空间中可能更为接近。HyDE通过生成假设性文档（答案）并利用Embedding相似性检索与之类似的真实文档来实现。
@@ -236,7 +238,7 @@ async def generation_with_knowledge_retrieval(
         print(f"retrieved:\n{node_with_scores}\n------")
 
     '''
-    重排序
+    todo 重排序
     '''
     if reranker:
         node_with_scores = reranker.postprocess_nodes(node_with_scores, query_bundle)
@@ -246,6 +248,12 @@ async def generation_with_knowledge_retrieval(
 
         if debug:
             print(f"reranked:\n{node_with_scores}\n------")
+
+    ''' 长上下文阅读器 '''
+    if cfg["LREORDER"]:
+        LCreorder = LongContextReorder()
+        node_with_scores = LCreorder.postprocess_nodes(node_with_scores)
+
     context_str = "\n\n".join(
         [f"{node.metadata['document_title']}: {node.text}" for node in node_with_scores]
     )
@@ -271,13 +279,13 @@ async def generation_with_knowledge_retrieval(
     # return ret
 
     quote = ""
-    quote_list = []
-    for node in node_with_scores:
-        if node.metadata["file_name"] not in quote_list:
-            quote += node.metadata["file_name"] + ","
-        else:
-            continue
-    del quote_list
+    quote_list = [node.metadata["file_name"] for node in node_with_scores]
+    quote_list = list(set(quote_list))
+    for i in quote_list:
+        # quote += i.metadata["file_name"] + ","
+        if "." in i:
+            quote += i + ","
     quote = quote[:-1]
 
+    # return ret
     return ret, quote

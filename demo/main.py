@@ -26,22 +26,22 @@ async def main():
     callback_manager = CallbackManager([llama_debug])
     Settings.callback_manager = callback_manager
 
-    # 初始化 LLM 嵌入模型
-    llm = OpenAILike(
-        api_key=config["GLM_KEY"],
-        model="glm-4",
-        # model="glm-4-0520",
-        api_base="https://open.bigmodel.cn/api/paas/v4/",
-        is_chat_model=True,
-        # max_tokens=200
-    )
-
+    # # 初始化 LLM 嵌入模型
     # llm = OpenAILike(
-    #     api_key='fake',
-    #     model="qwen2-72b-instruct-int4",
-    #     api_base="http://10.108.1.254:18001/v1",
-    #     max_tokens=512
+    #     api_key=config["GLM_KEY"],
+    #     model="glm-4",
+    #     # model="glm-4-0520",
+    #     api_base="https://open.bigmodel.cn/api/paas/v4/",
+    #     is_chat_model=True,
+    #     # max_tokens=200
     # )
+
+    llm = OpenAILike(
+        api_key='fake',
+        model="qwen2-72b-instruct-int4",
+        api_base="http://10.108.1.254:18001/v1",
+        max_tokens=512
+    )
 
     # embeding
     embeding_retriever_list = []
@@ -71,13 +71,13 @@ async def main():
     storage_context = StorageContext.from_defaults()
     storage_context.docstore.add_documents(nodes)
 
-    # 定义向量索引和关键词表索引
-    from llama_index.core import GPTVectorStoreIndex, SimpleKeywordTableIndex, VectorStoreIndex
-
-    vector_index = VectorStoreIndex(nodes, storage_context=storage_context)
-    keyword_index = SimpleKeywordTableIndex(nodes, storage_context=storage_context)
-    vector_index.docstore.persist(persist_path="./storage/vector_index")
-    keyword_index.docstore.persist(persist_path="./storage/keyword_index")
+    # # 定义向量索引和关键词表索引
+    # from llama_index.core import GPTVectorStoreIndex, SimpleKeywordTableIndex, VectorStoreIndex
+    #
+    # vector_index = VectorStoreIndex(nodes, storage_context=storage_context)
+    # keyword_index = SimpleKeywordTableIndex(nodes, storage_context=storage_context)
+    # vector_index.docstore.persist(persist_path="./storage/vector_index")
+    # keyword_index.docstore.persist(persist_path="./storage/keyword_index")
 
 
     # reranker
@@ -86,7 +86,8 @@ async def main():
         # Re-Rank the top 3 chunks based on the gpt-3.5-turbo-0125 model
         reranker = SentenceTransformerRerank(model=r"F:\inspur\EMBEDDING_MODEL\Xorbits\bge-reranker-base", top_n=6)
 
-    queries = read_jsonl("question-pdd.jsonl")
+    # queries = read_jsonl("question-pdd.jsonl")
+    queries = read_jsonl("sichuan-jike.jsonl")
 
     # 生成答案
     print("Start generating answers...")
